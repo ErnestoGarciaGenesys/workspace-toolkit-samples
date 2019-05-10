@@ -129,6 +129,8 @@
 		}
 	</style> -->
 
+	<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
 	<style>
 		/* Layout */
 
@@ -146,14 +148,22 @@
 			height: 100%;
 		}
 
+		#interactionManagementView {
+			flex-grow: 1;
+
+			display: flex;
+			flex-direction: column;
+		}
+
 		#myToolbar {
 			display: flex;
-			justify-content: flex-end;
+			justify-content: space-between;
 			padding: 6px;
 		}
 
 		#myCustomInteractionContainer {
 			position: relative; /* this needs to be corrected! */
+			flex-grow: 1;
 		}
 
 		/* #myToolbar > * {
@@ -162,37 +172,106 @@
 
 		#authFrame {
 			height: 100%;
-			
-			/* iframes are inline by default, which causes a scrollbar to show (https://stackoverflow.com/a/9131632) */
-			display: block;
 		}
 
 		#auth-genesys {
 			border: none;
+			display: block; /* iframes are inline by default, which causes a scrollbar to show (https://stackoverflow.com/a/9131632) */
 		}
 
-		/* Colors */
+		/* Colors and fonts */
+
+		body {
+			font-family: Roboto, sans-serif;
+		}
 
 		#myToolbar {
 			background: #3c474d;
 		}
-	</style>
 
+		.wwe-custom-icon-tc_24x24::before {
+    		content: '\e807';
+			font-size: 24px;
+		}
+
+		#teamCommunicatorToggle {
+			color: white;
+			background-color: #3c474d;
+			border-style: none;
+		}
+
+		#teamCommunicatorToggle.toggleSet {
+			filter: brightness(1.5);
+		}
+	</style>
+</head>
+
+<body>
+		<div id="loadingAPIView" style="height:100%; text-align:center;">
+				<p>Loading Genesys Workspace library...</p>
+				<img src="loading.gif" width="50px" height="50px">
+		</div>
+		<div id="loadingViews" style="height:100%; text-align:center;">
+			<img src="loading.gif">
+			<p>Loading Genesys Workspace views...</p>
+		</div>
+		<!--
+		For supporting popup auth: 
+		<div id="loginInProgressView" style="display: none">
+			Waiting for auth. Please use the login popup...
+		</div> 
+		-->
+	<div id="authFrame"></div>
+	<div id="workspaceContainer">
+		<div id="myToolbar">
+			<!-- <button id="myCustomLogout" onclick="logout()" title='logout'>Logout</button> -->
+			<button title="Team Communicator" id="teamCommunicatorToggle" class="wwe-custom-icon-tc_24x24"></button>
+			<div id="myCustomAgentState"></div>
+		</div>
+
+		<!-- <div id="workspaceDesktop"> -->
+<!-- 
+			<h2>Agent Channels</h2>
+			<div id="myCustomAgentChannels"></div>
+ -->
+		<div id="myCustomTeamCommunicator"></div>
+
+		<div id="interactionManagementView">
+			<div id="myCustomInteractionBar"></div>
+			<div id="myCustomInteractionContainer"></div>
+		</div>
+
+<!-- 
+			<h2>Contact Directory</h2>
+			<div id="myCustomAgentContactDirectory"></div>
+
+			<h2>Performance Tracker</h2>
+			<div id="myCustomPerformanceTrackerView"></div>
+
+			<h2>Contact Center Statistics</h2>
+			<div id="myCustomContactCenterStatisticsView"></div>
+ -->
+
+		<!-- </div> -->
+
+	</div>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
 
 	<script data-genesys-api-callback="onGenesysAPIReady" src="http://localhost:7777/ui/wwe/api.js"></script>
 	<!-- <script data-genesys-api-callback="onGenesysAPIReady" src="https://gwa-use1.genesyscloud.com/ui/wwe/api.js"></script> -->
 
 	<script>
-		var AUTH_MODE = "iframe"
+		const AUTH_MODE = "iframe"
 		refreshComponents('LOADING_API')
 
 		window.onGenesysAPIReady = function() {
+			// refreshComponents('READY_TO_LOGIN')
 			window.genesys.wwe.auth.login({
 					authMode: 'iframe',
 					target: 'authFrame',
 				},
 				function loginSucceeded() {
+					refreshComponents('LOADING_VIEWS')
 					createWorkspaceViews()
 					refreshComponents('AUTHENTICATED')
 				},
@@ -242,61 +321,46 @@
 		function refreshComponents(state) {
 			console.info("Refreshing UI for state ", state)
 
-			$('#workspaceContainer').hide()
 			$('#loadingAPIView').hide()
+			$('#loadingViews').hide()
 			$('#authFrame').hide()
-			$('#loginInProgressView').hide()
+			$('#workspaceContainer').hide()
+			// $('#loginInProgressView').hide() // For supporting popup auth
 
 			if (state == 'LOADING_API') $('#loadingAPIView').show()
-					
-			if (state == 'AUTHENTICATED') $('#workspaceContainer').show()
-			
+			if (state == 'LOADING_VIEWS') $('#loadingViews').show()
 			if (state == 'READY_TO_LOGIN') $('#authFrame').show()
+			// if (state == 'LOGIN_IN_PROGRESS') $('#loginInProgressView').show() // For supporting popup auth
+			if (state == 'AUTHENTICATED') {
+				$('#workspaceContainer').show()
+				refreshWorkspaceView()
+			} 
+		}
 
-			if (state == 'LOGIN_IN_PROGRESS') {
-				$('#loginInProgressView').show()
+		var showCommunicator = false
+
+		function refreshWorkspaceView() {
+			if (showCommunicator) {
+				$('#interactionManagementView').hide()
+				$('#myCustomTeamCommunicator').show()
+			} else {
+				$('#interactionManagementView').show()
+				$('#myCustomTeamCommunicator').hide()
 			}
 		}
+
+		$('#teamCommunicatorToggle').click(() => {
+			showCommunicator = !showCommunicator
+
+			if (showCommunicator) {
+				$('#teamCommunicatorToggle').addClass('toggleSet')
+			} else {
+				$('#teamCommunicatorToggle').removeClass('toggleSet')
+			}
+
+			refreshWorkspaceView()
+		})
 	</script>
-</head>
-
-<body>
-	<div id="loadingAPIView">Genesys Workspace loading...</div>
-	<div id="loginInProgressView" style="display: none">
-		Waiting for auth. Please use the login popup...
-	</div>
-	<div id="authFrame"></div>
-	<div id="workspaceContainer">
-		<div id="myToolbar">
-			<!-- <button id="myCustomLogout" onclick="logout()" title='logout'>Logout</button> -->
-			<div id="myCustomAgentState"></div>
-		</div>
-
-		<!-- <div id="workspaceDesktop"> -->
-<!-- 
-			<h2>Agent Channels</h2>
-			<div id="myCustomAgentChannels"></div>
-
-			<h2>Team Communicator</h2>
-			<div id="myCustomTeamCommunicator"></div>
- -->
-		<div id="myCustomInteractionBar"></div>
-		<div id="myCustomInteractionContainer"></div>
-
-<!-- 
-			<h2>Contact Directory</h2>
-			<div id="myCustomAgentContactDirectory"></div>
-
-			<h2>Performance Tracker</h2>
-			<div id="myCustomPerformanceTrackerView"></div>
-
-			<h2>Contact Center Statistics</h2>
-			<div id="myCustomContactCenterStatisticsView"></div>
- -->
-
-		<!-- </div> -->
-
-	</div>
 </body>
 
 </html>

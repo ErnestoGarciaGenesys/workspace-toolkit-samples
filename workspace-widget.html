@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Workspace Widget</title>
+	<!-- <style>
+
+		/* General */
+
+		html,
+		body {
+			width: 100%;
+			margin: 0;
+		}
+
+		#workspaceContainer {
+			width: 100%;
+		}
+
+		#myToolbar {
+			background: #3c474d;
+			height: 45px;
+		}
+
+		/* Login containers */
+
+		#loginInProgressView {
+			position: absolute;
+			left: 200px;
+			top: 200px;
+		}
+
+		#loginInProgressView input {
+			margin-bottom: 0px;
+		}
+
+		#myCustomLogout {
+			background: none;
+			color: #FDFDFD;
+			border: 1px solid;
+			margin: 8px 0px 0px 10px;
+			height: 30px;
+		}
+
+		#AuthSignInBtnContainer {
+			position: absolute;
+			width: 100%;
+			text-align: center;
+			top: calc(50% - 20px);
+		}
+
+		#infoAuthLogin,
+		#loginInProgressView,
+		#loadingAPIView {
+			position: absolute;
+			width: 100%;
+			text-align: center;
+			font-size: 16px;
+			top: calc(40% - 20px);
+			left: 0;
+			right: 0;
+		}
+
+		#authFrame {
+			position: absolute;
+			height: 55%;
+			bottom: 0;
+			left: calc(50% - 300px);
+			width: 600px;
+			border: none;
+		}
+
+		#authFrame iframe {
+			border: 1px solid;
+		}
+
+		/* UI containers */
+
+		#myCustomAgentState {
+			position: absolute;
+			top: 6px;
+			right: 10px;
+		}
+
+		#workspaceDesktop {
+			position: absolute;
+			top: 45px;
+			left: 0px;
+			right: 0px;
+			bottom: 0px;
+			padding: 10px;
+			overflow-y: scroll;
+		}
+
+		#myCustomAgentChannels,
+		#myCustomTeamCommunicator,
+		#myCustomInteractionBar,
+		#myCustomInteractionContainer,
+		#myCustomAgentContactDirectory,
+		#myCustomPerformanceTrackerView,
+		#myCustomContactCenterStatisticsView {
+			position: relative;
+			height: 500px;
+			border: 2px solid darkgray;
+		}
+
+		#myCustomInteractionBar {
+			height: auto;
+		}
+
+		#myCustomInteractionContainer {
+			position: absolute;
+			bottom: 0px;
+			height: auto;
+		}
+
+		#myCustomAgentContactDirectory {
+			height: 500px;
+		}
+
+		/* To have a specific height size of the TeamCommunicator */
+
+		#myCustomTeamCommunicator .wwe-team-communicator .wwe-team-communicator-content .wwe-team-communicator-suggestions-result {
+			height: 40px!important;
+		}
+
+		#myCustomTeamCommunicator .wwe-team-communicator .wwe-team-communicator-content .wwe-team-communicator-suggestions {
+			height: 380px!important;
+		}
+	</style> -->
+
+	<style>
+		/* Layout */
+
+		html, body { 
+			height: 100%;
+		}
+
+		body {
+			margin: 0;
+		}
+
+		#workspaceContainer {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+		}
+
+		#myToolbar {
+			display: flex;
+			justify-content: flex-end;
+			padding: 6px;
+		}
+
+		#myCustomInteractionContainer {
+			position: relative; /* this needs to be corrected! */
+		}
+
+		/* #myToolbar > * {
+			margin: 6px;
+		} */
+
+		#authFrame {
+			height: 100%;
+			
+			/* iframes are inline by default, which causes a scrollbar to show (https://stackoverflow.com/a/9131632) */
+			display: block;
+		}
+
+		#auth-genesys {
+			border: none;
+		}
+
+		/* Colors */
+
+		#myToolbar {
+			background: #3c474d;
+		}
+	</style>
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+
+	<script data-genesys-api-callback="onGenesysAPIReady" src="http://localhost:7777/ui/wwe/api.js"></script>
+	<!-- <script data-genesys-api-callback="onGenesysAPIReady" src="https://gwa-use1.genesyscloud.com/ui/wwe/api.js"></script> -->
+
+	<script>
+		var AUTH_MODE = "iframe"
+		refreshComponents('LOADING_API')
+
+		window.onGenesysAPIReady = function() {
+			window.genesys.wwe.auth.login({
+					authMode: 'iframe',
+					target: 'authFrame',
+				},
+				function loginSucceeded() {
+					createWorkspaceViews()
+					refreshComponents('AUTHENTICATED')
+				},
+				function loginFailed(data) {
+					console.error(data)
+					refreshComponents('READY_TO_LOGIN')
+				}
+			);
+
+			refreshComponents('READY_TO_LOGIN')
+		};
+
+		function createWorkspaceViews() {
+			function addView(viewName, target, options) {
+				return genesys.wwe.viewManager.addViewDynamically(
+					document.getElementById(target), 
+					genesys.wwe.Main.ViewManager.CommonView[viewName],
+					options);
+			}
+
+			agentStateView = addView('AgentStateView', 'myCustomAgentState')
+			myChannelsView = addView('MyChannelsView', 'myCustomAgentChannels')
+			teamCommunicator = addView('TeamCommunicatorView', 'myCustomTeamCommunicator')
+			interactionBarView = addView('InteractionBarView', 'myCustomInteractionBar',
+				{ pinnedCaseSelector: "#myCustomInteractionContainer" });
+			agentContactDirectoryView = addView('ContactDirectoryView', 'myCustomAgentContactDirectory')
+			performanceTrackerView = addView('PerformanceTrackerView', 'myCustomPerformanceTrackerView')
+			contactCenterStatisticsView = addView('ContactCenterStatisticsView', 'myCustomContactCenterStatisticsView')
+		}
+
+		function logout() {
+			genesys.wwe.agent.logout().then(
+				function logoutSucceeded() {
+					genesys.wwe.viewManager.removeViewDynamically(agentStateView);
+					genesys.wwe.viewManager.removeViewDynamically(myChannelsView);
+					genesys.wwe.viewManager.removeViewDynamically(teamCommunicator);
+					genesys.wwe.viewManager.removeViewDynamically(interactionBarView);
+					genesys.wwe.viewManager.removeViewDynamically(agentContactDirectoryView);
+					genesys.wwe.viewManager.removeViewDynamically(performanceTrackerView);
+					genesys.wwe.viewManager.removeViewDynamically(contactCenterStatisticsView);
+				},
+				function logoutFailed() {
+					// Failed to logout (An interaction is still active or the agent has refused to logout at the prompt)
+				});
+		}
+
+		function refreshComponents(state) {
+			console.info("Refreshing UI for state ", state)
+
+			$('#workspaceContainer').hide()
+			$('#loadingAPIView').hide()
+			$('#authFrame').hide()
+			$('#loginInProgressView').hide()
+
+			if (state == 'LOADING_API') $('#loadingAPIView').show()
+					
+			if (state == 'AUTHENTICATED') $('#workspaceContainer').show()
+			
+			if (state == 'READY_TO_LOGIN') $('#authFrame').show()
+
+			if (state == 'LOGIN_IN_PROGRESS') {
+				$('#loginInProgressView').show()
+			}
+		}
+	</script>
+</head>
+
+<body>
+	<div id="loadingAPIView">Genesys Workspace loading...</div>
+	<div id="loginInProgressView" style="display: none">
+		Waiting for auth. Please use the login popup...
+	</div>
+	<div id="authFrame"></div>
+	<div id="workspaceContainer">
+		<div id="myToolbar">
+			<!-- <button id="myCustomLogout" onclick="logout()" title='logout'>Logout</button> -->
+			<div id="myCustomAgentState"></div>
+		</div>
+
+		<!-- <div id="workspaceDesktop"> -->
+<!-- 
+			<h2>Agent Channels</h2>
+			<div id="myCustomAgentChannels"></div>
+
+			<h2>Team Communicator</h2>
+			<div id="myCustomTeamCommunicator"></div>
+ -->
+		<div id="myCustomInteractionBar"></div>
+		<div id="myCustomInteractionContainer"></div>
+
+<!-- 
+			<h2>Contact Directory</h2>
+			<div id="myCustomAgentContactDirectory"></div>
+
+			<h2>Performance Tracker</h2>
+			<div id="myCustomPerformanceTrackerView"></div>
+
+			<h2>Contact Center Statistics</h2>
+			<div id="myCustomContactCenterStatisticsView"></div>
+ -->
+
+		<!-- </div> -->
+
+	</div>
+</body>
+
+</html>

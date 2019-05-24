@@ -223,10 +223,20 @@
 		-->
 	<div id="authFrame"></div>
 	<div id="workspaceContainer">
+		<div id="incomingCalls">
+			<template>
+				<div id="incomingCall">
+					Incoming Call from {{}}...
+					<button id="acceptCallButton">Accept</button>
+				</div>
+			</template>
+		</div>
 		<div id="myToolbar">
 			<!-- <button id="myCustomLogout" onclick="logout()" title='logout'>Logout</button> -->
 			<button title="Team Communicator" id="teamCommunicatorToggle" class="wwe-custom-icon-tc_24x24"></button>
-			<div id="myCustomAgentState"></div>
+			
+			<!-- !Width and height should not be needed -->
+			<div id="myCustomAgentState" style="width: 200px;height: 30px;"></div>
 		</div>
 
 		<!-- <div id="workspaceDesktop"> -->
@@ -255,7 +265,10 @@
 		<!-- </div> -->
 
 	</div>
+	<!-- JQuery to apply to window, also when running in Electron with nodeIntegration, see https://stackoverflow.com/a/37480521/503785 -->
+	<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+	<script>if (window.module) module = window.module;</script>
 
 	<script data-genesys-api-callback="onGenesysAPIReady" src="http://localhost:7777/ui/wwe/api.js"></script>
 	<!-- <script data-genesys-api-callback="onGenesysAPIReady" src="https://gwa-use1.genesyscloud.com/ui/wwe/api.js"></script> -->
@@ -272,16 +285,39 @@
 				},
 				function loginSucceeded() {
 					refreshComponents('LOADING_VIEWS')
+					registerListeners()
 					createWorkspaceViews()
 					refreshComponents('AUTHENTICATED')
 				},
 				function loginFailed(data) {
 					console.error(data)
 					refreshComponents('READY_TO_LOGIN')
+				},
+				function onProgress(progressType) {
+					console.info("Login progress: " + progressType)
+
+					switch(progressType) {
+						case "authenticationStarted": // When the authentication has been prompted to the user
+							// Nearly 1 second after login starts executing. A bit more of waiting screen shown. 
+							refreshComponents('READY_TO_LOGIN')
+							break;
+						case "authenticationEnded": // When the authentication is completed
+							// 1.5 seconds before loginSucceeded. A bit more of waiting screen shown.
+							refreshComponents('LOADING_API')
+							break;
+						case "authenticationClosed": // When the authentication popup has been closed without been authenticated
+							break;
+						case "authenticationNotNeeded": // When the authentication is not needed because the user is already authenticated
+							break;
+						default:
+							break;
+					}
 				}
 			);
 
-			refreshComponents('READY_TO_LOGIN')
+			// Defer READY_TO_LOGIN until authenticationStarted. Nearly 1 second difference.
+			// Show waiting screen from authenticationEnded until AUTHENTICATED. Nearly 1 second difference.
+			// authenticationNotNeeded would better be data of loginSucceeded, as it is simultaneous.
 		};
 
 		function createWorkspaceViews() {
@@ -294,7 +330,7 @@
 
 			agentStateView = addView('AgentStateView', 'myCustomAgentState')
 			myChannelsView = addView('MyChannelsView', 'myCustomAgentChannels')
-			teamCommunicator = addView('TeamCommunicatorView', 'myCustomTeamCommunicator')
+			teamCommunicator = addView('CommunicatorView', 'myCustomTeamCommunicator')
 			interactionBarView = addView('InteractionBarView', 'myCustomInteractionBar',
 				{ pinnedCaseSelector: "#myCustomInteractionContainer" });
 			agentContactDirectoryView = addView('ContactDirectoryView', 'myCustomAgentContactDirectory')
@@ -359,6 +395,39 @@
 			}
 
 			refreshWorkspaceView()
+		})
+
+		function registerListeners() {
+			var interactions = genesys.wwe.interactionManager.get('interactions')
+			// See https://backbonejs.org/#Events-catalog
+			interactions.on('add', onInteractionAdded)
+			interactions.on('remove', onInteractionRemoved)
+			interactions.on('all', onInteractionsCollectionEvent)
+		}
+
+		function onInteractionAdded(interaction, interactions, options) {
+			console.log('onInteractionAdded', interaction, interactions, options)
+			interaction.on('event', onInteractionEvent)
+			$('#incomingCall').show()
+		}
+		
+		function onInteractionRemoved(interaction, interactions, options) {
+			console.log('onInteractionAdded', interaction, interactions, options)
+			interaction.off('event', onInteractionEvent)
+		}
+
+		function onInteractionEvent(interactionEvent) {
+			console.log('onInteractionEvent', interactionEvent)
+		}
+
+		function onInteractionsCollectionEvent(eventName, eventData1, eventData2, eventData3, eventData4) {
+			console.log('onInteractionsCollectionEvent', eventName, eventData1, eventData2, eventData3, eventData4)
+		}
+
+		$('#incomingCall').hide()
+
+		$('#acceptCallButton').click(() => {
+
 		})
 	</script>
 </body>
